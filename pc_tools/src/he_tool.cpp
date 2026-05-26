@@ -5,6 +5,7 @@
 #include <seal/seal.h>
 
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -204,6 +205,7 @@ namespace
     {
         std::cout << "he_tool commands:\n"
                   << "  export-bundle --bundle-out <path> --secret-out <path> [--poly 2048] [--coeff-bits 50] [--scale-bits 20] [--seed-hex <128hex>]\n"
+                  << "  export-eval-keys --bundle <path> --secret <path> --relin-out <path> --galois-out <path> [--galois-steps all|csv]\n"
                   << "  export-embedded-package --bundle <path> --out <path>\n"
                   << "  encrypt-from-bundle --bundle <path> --out <path> --values <csv> [--scale-bits <n>] [--seed-hex <128hex>]\n"
                   << "  encrypt-mini --package <path> --out <path> --value <double> [--scale-bits <n>] [--rng-seed <u64>]\n"
@@ -267,6 +269,65 @@ namespace
         {
             std::cout << "seed_hex=" << seed_to_hex(*seed) << "\n";
         }
+        return 0;
+    }
+
+    int cmd_export_eval_keys(const std::map<std::string, std::string> &args)
+    {
+        const auto bundle_path = require_arg(args, "--bundle");
+        const auto secret_path = require_arg(args, "--secret");
+        const auto relin_out = require_arg(args, "--relin-out");
+        const auto galois_out = require_arg(args, "--galois-out");
+        const auto galois_steps_text = args.count("--galois-steps") ? args.at("--galois-steps") : "1,2,4,8,16,32,64,128,256,512";
+
+        auto bundle_bytes = he::read_file_binary(bundle_path);
+        auto bundle = he::parse_bundle(bundle_bytes);
+        auto parms = load_params_from_blob(bundle.payload.params_blob);
+        SEALContext context(parms, true, sec_level_type::tc128);
+        if (!context.parameters_set())
+        {
+            throw std::runtime_error("SEALContext parameters_set=false from bundle params");
+        }
+        if (!context.using_keyswitching())
+        {
+            throw std::runtime_error(
+                "keyswitching is not supported by these parameters; relin/galois keys require a multi-prime "
+                "coefficient modulus chain with at least one non-special data prime plus a key-switching prime");
+        }
+
+        SecretKey sk = load_sk_from_file(context, secret_path);
+        KeyGenerator keygen(context, sk);
+
+        RelinKeys relin_keys;
+        keygen.create_relin_keys(relin_keys);
+        auto relin_bytes = save_to_none_bytes(relin_keys);
+        he::write_file_binary(relin_out, relin_bytes);
+
+        GaloisKeys galois_keys;
+        if (galois_steps_text == "all")
+        {
+            keygen.create_galois_keys(galois_keys);
+        }
+        else
+        {
+            auto steps = parse_csv_ints(galois_steps_text);
+            const auto slot_count = parms.poly_modulus_degree() / 2;
+            for (auto step : steps)
+            {
+                if (step == 0 || static_cast<std::size_t>(std::abs(step)) >= slot_count)
+                {
+                    throw std::runtime_error("invalid galois step for CKKS slot count: " + std::to_string(step));
+                }
+            }
+            keygen.create_galois_keys(steps, galois_keys);
+        }
+        auto galois_bytes = save_to_none_bytes(galois_keys);
+        he::write_file_binary(galois_out, galois_bytes);
+
+        std::cout << "relin_out=" << relin_out << " bytes=" << relin_bytes.size() << "\n";
+        std::cout << "galois_out=" << galois_out << " bytes=" << galois_bytes.size() << "\n";
+        std::cout << "galois_steps=" << galois_steps_text << "\n";
+        std::cout << "note=Evaluation keys are for the PC/server only; the ESP32 encryption client does not need them.\n";
         return 0;
     }
 
@@ -601,6 +662,10 @@ int main(int argc, char **argv)
         if (cmd == "export-bundle")
         {
             return cmd_export_bundle(args);
+        }
+        if (cmd == "export-eval-keys")
+        {
+            return cmd_export_eval_keys(args);
         }
         if (cmd == "encrypt-from-bundle")
         {

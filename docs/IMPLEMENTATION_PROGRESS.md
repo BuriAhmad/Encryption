@@ -34,6 +34,10 @@ Date: 2026-05-26
   - `MEM` command for immediate heap/PSRAM/tracked allocation state
   - `BENCH <value> <runs>` command for repeated encryption timing/memory measurements
   - PSRAM-preferred allocation tracker with current/peak/internal/PSRAM counters
+- Added next-phase planning and PC/server evaluation-key scaffolding:
+  - `docs/NEXT_PHASE_VECTOR_RNS_EVAL_KEYS.md`
+  - `docs/PARAMETER_FEASIBILITY_4K_8K.md`
+  - `pc_tools/build/he_tool export-eval-keys` command for future multi-prime bundles
 
 ## Validated flow
 
@@ -67,12 +71,15 @@ Date: 2026-05-26
   - Average serialization time: about 1 ms
   - Temporary tracked HE allocation peak delta: about 131185 bytes
   - Temporary tracked HE allocations used PSRAM, not internal RAM
+- Evaluation-key export: **scaffolded for future multi-prime parameters**
+  - Current single-prime `N=2048` parameters cannot use SEAL key-switching.
+  - A host-side smoke test with `N=4096` and two 36-bit primes successfully exported relin and selected Galois keys.
 
 ## Not implemented yet
 
 - Full CKKS vector encode path on ESP32
 - Multi-prime (`K>1`) RNS path
 - Seeded ciphertext/public-key serialization paths
-- Runtime memory benchmarking on target board
+- Binary serial/Wi-Fi transport for larger ciphertexts
 - Larger/more realistic memory benchmarking before increasing parameter sizes.
 - External-tool energy measurement is intentionally deferred.

@@ -36,6 +36,21 @@ pc_tools/build/he_tool export-bundle \
   --scale-bits 20
 ```
 
+### 1b) Export server-side evaluation keys
+
+Relinearization and Galois keys are only needed on the PC/server when doing ciphertext-ciphertext multiplication or slot rotations. The ESP32 encryption client does not need these keys.
+
+```bash
+pc_tools/build/he_tool export-eval-keys \
+  --bundle pc_tools/test_vectors/bundle.bin \
+  --secret pc_tools/test_vectors/secret.bin \
+  --relin-out pc_tools/test_vectors/relin_keys.bin \
+  --galois-out pc_tools/test_vectors/galois_keys.bin \
+  --galois-steps 1,2,4,8
+```
+
+The current `N=2048`, one-prime prototype cannot create these keys because SEAL key-switching requires a multi-prime modulus chain. This command is for the next multi-prime/server-computation phase.
+
 ### 2) Encrypt from bundle
 
 ```bash

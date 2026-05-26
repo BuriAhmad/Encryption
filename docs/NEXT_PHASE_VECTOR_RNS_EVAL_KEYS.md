@@ -1,22 +1,22 @@
-# Next Phase: Vectors, Multi-Prime RNS, and Evaluation Keys
+# Next Phase: Vector Hardening, Multi-Prime RNS, and Evaluation Keys
 
-This note explains what needs to change after the current scalar, single-prime prototype.
+This note explains what needs to change after the current `N=4096`, real-vector, single-prime prototype.
 
 ## Current Prototype
 
 The ESP32 currently does:
 
 ```text
-single double value -> scalar CKKS-style plaintext -> public-key encrypt -> SEAL ciphertext bytes
+vector<double> -> SEAL-style CKKS plaintext -> public-key encrypt -> SEAL ciphertext bytes
 ```
 
 Current supported embedded shape:
 
 ```text
-poly_modulus_degree = 2048
+poly_modulus_degree = 4096
 coeff_modulus_count = 1
 scale_bits = 20
-ciphertext size = 32881 bytes
+ciphertext size = 65649 bytes
 ```
 
 This is enough to prove:
@@ -88,7 +88,7 @@ pc_tools/build/he_tool export-eval-keys \
   --galois-steps 1,2,4,8
 ```
 
-For the current `N=2048`, single-prime prototype, this intentionally fails with a clear message because SEAL key-switching is unavailable.
+For the current `N=4096`, single-prime prototype, this intentionally fails with a clear message because SEAL key-switching is unavailable.
 
 For a multi-prime bundle, it works. A smoke test with `N=4096` and two 36-bit primes produced:
 
@@ -103,35 +103,39 @@ Important: these evaluation keys are for the PC/server only. The ESP32 encryptio
 
 ## Vector CKKS Encoding On ESP32
 
-True CKKS vector encoding is much heavier than the current scalar path.
+True CKKS vector encoding is now implemented for real-valued vectors in the single-prime path.
 
-Current scalar path:
-
-```text
-value -> repeated-slot plaintext shortcut
-```
-
-Full vector path:
+Implemented path:
 
 ```text
-vector<double/complex> -> inverse canonical embedding -> coefficient polynomial -> RNS/NTT plaintext
+vector<double> -> matrix map -> inverse complex DWT -> coefficient polynomial -> NTT plaintext
 ```
 
-This requires more machinery:
+Remaining hardening work:
+
+```text
+complex vector support, larger test-vector coverage, and multi-prime RNS plaintext output
+```
+
+The implemented real-vector path now includes:
 
 - complex FFT-like transform over CKKS slots
 - bit-reversal/permutation logic matching SEAL
-- floating-point rounding into coefficient modulus limbs
+- floating-point rounding into the current coefficient modulus
+- SEAL minimal primitive root convention for NTT compatibility
+
+Still missing:
+
+- complex input values
 - RNS handling for every coefficient modulus prime
-- exact SEAL-compatible plaintext layout
+- broader exact-layout regression tests against SEAL plaintexts
 
 Recommended implementation order:
 
-1. Keep the current scalar path stable.
-2. Add PC-generated deterministic vector test cases.
-3. Implement vector encode on the PC-side mini core first.
-4. Compare mini plaintext/ciphertext behavior against SEAL.
-5. Port the vector encoder to ESP32 only after the host version matches.
+1. Add more deterministic vector test cases.
+2. Compare mini plaintext/ciphertext behavior against SEAL over many vectors.
+3. Add complex-valued vector support if needed.
+4. Extend vector encoding to multi-prime RNS.
 
 ## Multi-Prime RNS On ESP32
 

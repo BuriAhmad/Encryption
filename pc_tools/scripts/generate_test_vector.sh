@@ -16,7 +16,7 @@ VALUES="1.25,-2.5,3.75,4.5"
 "${BUILD_DIR}/he_tool" export-bundle \
   --bundle-out "${OUT_DIR}/bundle.bin" \
   --secret-out "${OUT_DIR}/secret.bin" \
-  --poly 2048 \
+  --poly 4096 \
   --coeff-bits 50 \
   --scale-bits 20 \
   --seed-hex "${SEED}"
@@ -34,7 +34,7 @@ VALUES="1.25,-2.5,3.75,4.5"
 "${BUILD_DIR}/he_tool" encrypt-mini \
   --package "${OUT_DIR}/embedded_package.bin" \
   --out "${OUT_DIR}/mini_cipher.bin" \
-  --value 1.25 \
+  --values "${VALUES}" \
   --rng-seed 12345
 
 "${BUILD_DIR}/he_tool" decrypt-check \
@@ -48,7 +48,7 @@ VALUES="1.25,-2.5,3.75,4.5"
   --bundle "${OUT_DIR}/bundle.bin" \
   --secret "${OUT_DIR}/secret.bin" \
   --cipher "${OUT_DIR}/mini_cipher.bin" \
-  --expected "1.25" \
+  --expected "${VALUES}" \
   --print-slots 8 | tee "${OUT_DIR}/mini_decrypt_report.txt"
 
 cat > "${OUT_DIR}/vector_manifest.txt" <<EOF

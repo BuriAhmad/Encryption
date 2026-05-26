@@ -132,6 +132,7 @@ def main() -> int:
     parser.add_argument("--port", default="/dev/cu.usbserial-10")
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--value", type=float, default=1.25)
+    parser.add_argument("--values", default=None, help="comma-separated vector values; overrides --value")
     parser.add_argument("--out", type=Path, default=Path("pc_tools/test_vectors/cipher_from_esp.bin"))
     parser.add_argument("--timeout", type=float, default=90.0)
     parser.add_argument("--verify", action="store_true")
@@ -148,6 +149,8 @@ def main() -> int:
         configure_serial(fd, args.baud)
         time.sleep(1.2)
 
+        value_text = args.values if args.values is not None else f"{args.value:.12g}"
+
         if args.bench_runs > 0:
             command = f"BENCH {args.value:.12g} {args.bench_runs}\n".encode("ascii")
             os.write(fd, command)
@@ -158,7 +161,7 @@ def main() -> int:
                 print(f"saved_report={args.report}")
             return 0
 
-        command = f"ENCRYPT {args.value:.12g}\n".encode("ascii")
+        command = f"ENCRYPT {value_text}\n".encode("ascii")
         os.write(fd, command)
 
         ciphertext, lines = read_lines_until_cipher(fd, args.timeout, args.show_hex)
@@ -181,7 +184,7 @@ def main() -> int:
                 "--cipher",
                 str(args.out),
                 "--expected",
-                str(args.value),
+                value_text,
                 "--max-abs-err",
                 "0.2",
                 "--compute-a",

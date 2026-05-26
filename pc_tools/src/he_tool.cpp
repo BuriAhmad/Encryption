@@ -204,11 +204,11 @@ namespace
     void print_usage()
     {
         std::cout << "he_tool commands:\n"
-                  << "  export-bundle --bundle-out <path> --secret-out <path> [--poly 2048] [--coeff-bits 50] [--scale-bits 20] [--seed-hex <128hex>]\n"
+                  << "  export-bundle --bundle-out <path> --secret-out <path> [--poly 4096] [--coeff-bits 50] [--scale-bits 20] [--seed-hex <128hex>]\n"
                   << "  export-eval-keys --bundle <path> --secret <path> --relin-out <path> --galois-out <path> [--galois-steps all|csv]\n"
                   << "  export-embedded-package --bundle <path> --out <path>\n"
                   << "  encrypt-from-bundle --bundle <path> --out <path> --values <csv> [--scale-bits <n>] [--seed-hex <128hex>]\n"
-                  << "  encrypt-mini --package <path> --out <path> --value <double> [--scale-bits <n>] [--rng-seed <u64>]\n"
+                  << "  encrypt-mini --package <path> --out <path> (--value <double>|--values <csv>) [--scale-bits <n>] [--rng-seed <u64>]\n"
                   << "  decrypt-check --bundle <path> --secret <path> --cipher <path> [--expected <csv>] [--print-slots <n>] [--max-abs-err <e>]\n"
                   << "               [--compute-after-pass 1] [--compute-a 1.0] [--compute-b 2.0] [--compute-c 3.0] [--compute-max-abs-err 0.2]\n";
     }
@@ -217,7 +217,7 @@ namespace
     {
         const auto bundle_out = require_arg(args, "--bundle-out");
         const auto secret_out = require_arg(args, "--secret-out");
-        const auto poly = static_cast<std::size_t>(std::stoul(args.count("--poly") ? args.at("--poly") : "2048"));
+        const auto poly = static_cast<std::size_t>(std::stoul(args.count("--poly") ? args.at("--poly") : "4096"));
         const auto coeff_bits = parse_csv_ints(args.count("--coeff-bits") ? args.at("--coeff-bits") : "50");
         const auto scale_bits = static_cast<std::uint32_t>(
             std::stoul(args.count("--scale-bits") ? args.at("--scale-bits") : "20"));
@@ -461,7 +461,14 @@ namespace
     {
         const auto pkg_path = require_arg(args, "--package");
         const auto out_path = require_arg(args, "--out");
-        const auto value = std::stod(require_arg(args, "--value"));
+        const bool has_scalar_value = args.count("--value") != 0;
+        const bool has_vector_values = args.count("--values") != 0;
+        if (has_scalar_value == has_vector_values)
+        {
+            throw std::runtime_error("encrypt-mini requires exactly one of --value or --values");
+        }
+        const auto value = has_scalar_value ? std::stod(args.at("--value")) : 0.0;
+        const auto values = has_vector_values ? he::parse_csv_doubles(args.at("--values")) : std::vector<double>{};
         const auto rng_seed = parse_u64_or_default(args, "--rng-seed", 0x123456789abcdefULL);
 
         auto pkg_bytes = he::read_file_binary(pkg_path);
@@ -485,7 +492,18 @@ namespace
         const uint32_t scale_bits = args.count("--scale-bits")
                                         ? static_cast<uint32_t>(std::stoul(args.at("--scale-bits")))
                                         : ctx.scale_bits;
-        if (!he_esp::mini_ckks_encrypt_scalar(ctx, value, scale_bits, xorshift_fill, &rng, c0.data(), c1.data(), &err))
+        bool ok = false;
+        if (has_vector_values)
+        {
+            ok = he_esp::mini_ckks_encrypt_vector(
+                ctx, values.data(), values.size(), scale_bits, xorshift_fill, &rng, c0.data(), c1.data(), &err);
+        }
+        else
+        {
+            ok = he_esp::mini_ckks_encrypt_scalar(
+                ctx, value, scale_bits, xorshift_fill, &rng, c0.data(), c1.data(), &err);
+        }
+        if (!ok)
         {
             he_esp::mini_ckks_release(ctx);
             throw std::runtime_error(std::string("mini encrypt failed: ") + (err ? err : "unknown"));
@@ -503,7 +521,15 @@ namespace
         ct_bytes.resize(wrote);
         he::write_file_binary(out_path, ct_bytes);
         std::cout << "mini_cipher_out=" << out_path << " bytes=" << ct_bytes.size() << "\n";
-        std::cout << "value=" << value << " scale_bits=" << scale_bits << " rng_seed=" << rng_seed << "\n";
+        if (has_vector_values)
+        {
+            std::cout << "values=" << he::join_doubles(values) << " scale_bits=" << scale_bits
+                      << " rng_seed=" << rng_seed << "\n";
+        }
+        else
+        {
+            std::cout << "value=" << value << " scale_bits=" << scale_bits << " rng_seed=" << rng_seed << "\n";
+        }
         return 0;
     }
 

@@ -38,6 +38,10 @@ Date: 2026-05-26
   - `docs/NEXT_PHASE_VECTOR_RNS_EVAL_KEYS.md`
   - `docs/PARAMETER_FEASIBILITY_4K_8K.md`
   - `pc_tools/build/he_tool export-eval-keys` command for future multi-prime bundles
+- Upgraded the active embedded prototype from scalar `N=2048` to vector CKKS encoding at `N=4096`:
+  - `ENCRYPT` now accepts comma-separated vector values, e.g. `ENCRYPT 1.5,2.25,-3.0,4.75`.
+  - Embedded vector encoder mirrors SEAL's CKKS matrix index map and inverse complex DWT flow.
+  - Embedded NTT root selection was corrected to SEAL's minimal primitive root convention.
 
 ## Validated flow
 
@@ -72,12 +76,18 @@ Date: 2026-05-26
   - Temporary tracked HE allocation peak delta: about 131185 bytes
   - Temporary tracked HE allocations used PSRAM, not internal RAM
 - Evaluation-key export: **scaffolded for future multi-prime parameters**
-  - Current single-prime `N=2048` parameters cannot use SEAL key-switching.
+  - Current single-prime parameters cannot use SEAL key-switching.
   - A host-side smoke test with `N=4096` and two 36-bit primes successfully exported relin and selected Galois keys.
+- Vector/N=4096 hardware test: **initial implementation complete**
+  - Tested serial command path: `ENCRYPT 1.5,2.25,-3.0,4.75`
+  - Captured ciphertext size: 65649 bytes
+  - Decrypt check: passed with max absolute error about 0.014
+  - Compute-after-decrypt-check: passed for `((x + 1) + 2) * 3`
+  - Average vector encryption time at `N=4096`: about 1196 ms
+  - Temporary tracked HE allocation peak delta at `N=4096`: about 262257 bytes
 
 ## Not implemented yet
 
-- Full CKKS vector encode path on ESP32
 - Multi-prime (`K>1`) RNS path
 - Seeded ciphertext/public-key serialization paths
 - Binary serial/Wi-Fi transport for larger ciphertexts

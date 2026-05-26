@@ -172,8 +172,16 @@ namespace
         print_size_kv("SEAL_MINOR", g_ctx.seal_minor);
         print_size_kv("C0_BYTES", static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t));
         print_size_kv("C1_BYTES", static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t));
-        print_size_kv("ENCRYPT_SCRATCH_BYTES", static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t) * 4);
-        print_size_kv("ROOT_TABLE_BYTES", static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t) * 2);
+        const size_t poly_u64_bytes = static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t);
+        const size_t complex_array_bytes = static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(double) * 2;
+        const size_t persistent_table_bytes = (poly_u64_bytes * 2) +
+                                              (static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint32_t)) +
+                                              (complex_array_bytes * 2);
+        const size_t encrypt_temp_peak_estimate =
+            (poly_u64_bytes * 6) + he_esp::mini_ckks_ciphertext_serialized_size(g_ctx);
+        print_size_kv("VECTOR_ENCODE_COMPLEX_BYTES", complex_array_bytes);
+        print_size_kv("PERSISTENT_TABLE_BYTES", persistent_table_bytes);
+        print_size_kv("ENCRYPT_TEMP_PEAK_ESTIMATE_BYTES", encrypt_temp_peak_estimate);
         print_size_kv("CIPHERTEXT_SERIALIZED_BYTES", he_esp::mini_ckks_ciphertext_serialized_size(g_ctx));
     }
 
@@ -197,7 +205,7 @@ namespace
         }
     }
 
-    bool run_encrypt(double value, bool emit_ciphertext, EncryptMetrics &metrics)
+    bool run_encrypt(const double *values, size_t values_size, bool emit_ciphertext, EncryptMetrics &metrics)
     {
         metrics = {};
         if (!g_ready)
@@ -235,8 +243,8 @@ namespace
 
         const char *err = nullptr;
         const uint32_t t0 = millis();
-        const bool ok = he_esp::mini_ckks_encrypt_scalar(
-            g_ctx, value, g_ctx.scale_bits, fill_random, nullptr, c0, c1, &err);
+        const bool ok = he_esp::mini_ckks_encrypt_vector(
+            g_ctx, values, values_size, g_ctx.scale_bits, fill_random, nullptr, c0, c1, &err);
         const uint32_t t1 = millis();
         update_min_seen(metrics.heap_free_min_seen, metrics.psram_free_min_seen);
 
@@ -319,16 +327,30 @@ namespace
         print_size_kv("FAILED_ALLOCATIONS", metrics.failed_allocations);
     }
 
-    bool encrypt_and_print(double value)
+    void print_values_csv(const double *values, size_t values_size)
+    {
+        for (size_t i = 0; i < values_size; ++i)
+        {
+            if (i)
+            {
+                Serial.print(",");
+            }
+            Serial.print(values[i], 12);
+        }
+    }
+
+    bool encrypt_and_print(const double *values, size_t values_size)
     {
         EncryptMetrics metrics{};
         Serial.println("BEGIN_ENCRYPT_REPORT");
-        Serial.print("VALUE=");
-        Serial.println(value, 12);
+        Serial.print("VALUES=");
+        print_values_csv(values, values_size);
+        Serial.println();
+        print_size_kv("VALUES_COUNT", values_size);
         print_parameters();
         he_esp::reset_he_allocation_peaks();
         print_memory("before_encrypt");
-        const bool ok = run_encrypt(value, true, metrics);
+        const bool ok = run_encrypt(values, values_size, true, metrics);
         if (!ok)
         {
             Serial.print("ERROR ");
@@ -390,7 +412,7 @@ namespace
         for (uint32_t i = 0; i < runs; ++i)
         {
             EncryptMetrics metrics{};
-            if (!run_encrypt(value, false, metrics))
+            if (!run_encrypt(&value, 1, false, metrics))
             {
                 Serial.print("ERROR bench_run_failed index=");
                 Serial.print(i);
@@ -458,6 +480,34 @@ namespace
         return arg;
     }
 
+    size_t parse_csv_values(String text, double *out, size_t max_count)
+    {
+        text.trim();
+        if (text.length() == 0 || !out || max_count == 0)
+        {
+            return 0;
+        }
+
+        size_t count = 0;
+        int start = 0;
+        while (start < text.length() && count < max_count)
+        {
+            int comma = text.indexOf(',', start);
+            if (comma < 0)
+            {
+                comma = text.length();
+            }
+            String token = text.substring(start, comma);
+            token.trim();
+            if (token.length() > 0)
+            {
+                out[count++] = token.toDouble();
+            }
+            start = comma + 1;
+        }
+        return count;
+    }
+
     void handle_command(String command)
     {
         command.trim();
@@ -494,7 +544,21 @@ namespace
             {
                 value_text = "1.25";
             }
-            encrypt_and_print(value_text.toDouble());
+            const size_t max_values = g_ctx.poly_modulus_degree / 2;
+            double *values = static_cast<double *>(he_esp::alloc_he_buffer(sizeof(double) * max_values));
+            if (!values)
+            {
+                Serial.println("ERROR values_allocation_failed");
+                return;
+            }
+            size_t values_count = parse_csv_values(value_text, values, max_values);
+            if (values_count == 0)
+            {
+                values[0] = 1.25;
+                values_count = 1;
+            }
+            encrypt_and_print(values, values_count);
+            he_esp::free_he_buffer(values);
             return;
         }
 

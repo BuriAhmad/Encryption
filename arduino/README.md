@@ -23,7 +23,7 @@ The ESP32 sketch does not generate keys and does not decrypt. It only:
 1. Starts Serial at `115200`.
 2. Loads the embedded public-key package from `embedded_package_blob.h`.
 3. Waits for a command from the PC.
-4. Encrypts one scalar value when it receives `ENCRYPT <value>`.
+4. Encrypts a real CKKS vector when it receives `ENCRYPT <csv-values>`.
 5. Prints a SEAL-compatible ciphertext as hex between markers.
 
 Supported commands:
@@ -32,7 +32,7 @@ Supported commands:
 PING
 INFO
 MEM
-ENCRYPT 1.25
+ENCRYPT 1.5,2.25,-3.0,4.75
 BENCH 1.25 10
 ```
 
@@ -77,7 +77,7 @@ Then type:
 ```text
 INFO
 MEM
-ENCRYPT 1.25
+ENCRYPT 1.5,2.25,-3.0,4.75
 BENCH 1.25 10
 ```
 
@@ -90,15 +90,17 @@ Use the capture script instead:
 ```bash
 pc_tools/serial/capture_esp_ciphertext.py \
   --port /dev/tty.usbserial-10 \
-  --value 1.25 \
+  --values 1.5,2.25,-3.0,4.75 \
   --out pc_tools/test_vectors/cipher_from_esp.bin \
+  --bundle pc_tools/test_vectors/bundle_4096.bin \
+  --secret pc_tools/test_vectors/secret_4096.bin \
   --verify
 ```
 
 This script:
 
 1. Opens the serial port.
-2. Sends `ENCRYPT 1.25`.
+2. Sends `ENCRYPT 1.5,2.25,-3.0,4.75`.
 3. Reads the ciphertext hex block.
 4. Saves it as a binary `.bin` file.
 5. Runs PC-side SEAL decrypt verification.
@@ -108,7 +110,7 @@ This script:
 ((x + 1) + 2) * 3
 ```
 
-For `x = 1.25`, the expected computed result is `12.75`.
+For `[1.5, 2.25, -3.0, 4.75]`, the expected computed result is `[13.5, 15.75, 0, 23.25]`.
 
 ## Benchmark And Memory Report
 
@@ -127,7 +129,7 @@ The benchmark report includes:
 - CKKS parameters: `N`, scale bits, coefficient modulus, ciphertext size.
 - Timing: min/avg/max encryption time, serialization time, total time.
 - Heap/PSRAM: free memory before, lowest seen during the run, and after.
-- Tracked allocations: persistent root-table memory, peak encryption memory, PSRAM vs internal RAM usage.
+- Tracked allocations: persistent encoder/NTT table memory, peak encryption memory, PSRAM vs internal RAM usage.
 
 The most important line for future scaling is:
 
@@ -135,7 +137,7 @@ The most important line for future scaling is:
 TRACKED_PEAK_DELTA_MAX
 ```
 
-That is the extra tracked HE memory needed while encryption is running, not counting the persistent root tables already loaded at boot.
+That is the extra tracked HE memory needed while encryption is running, not counting the persistent encoder/NTT tables already loaded at boot.
 
 ## Important Serial Notes
 

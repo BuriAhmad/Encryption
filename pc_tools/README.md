@@ -31,7 +31,7 @@ Binary: `pc_tools/build/he_tool`
 pc_tools/build/he_tool export-bundle \
   --bundle-out pc_tools/test_vectors/bundle.bin \
   --secret-out pc_tools/test_vectors/secret.bin \
-  --poly 2048 \
+  --poly 4096 \
   --coeff-bits 50 \
   --scale-bits 20
 ```
@@ -49,7 +49,7 @@ pc_tools/build/he_tool export-eval-keys \
   --galois-steps 1,2,4,8
 ```
 
-The current `N=2048`, one-prime prototype cannot create these keys because SEAL key-switching requires a multi-prime modulus chain. This command is for the next multi-prime/server-computation phase.
+The current one-prime prototype cannot create these keys because SEAL key-switching requires a multi-prime modulus chain. This command is for the next multi-prime/server-computation phase.
 
 ### 2) Encrypt from bundle
 
@@ -74,7 +74,7 @@ pc_tools/build/he_tool export-embedded-package \
 pc_tools/build/he_tool encrypt-mini \
   --package pc_tools/test_vectors/embedded_package.bin \
   --out pc_tools/test_vectors/mini_cipher.bin \
-  --value 1.25 \
+  --values "1.25,-2.5,3.75,4.5" \
   --rng-seed 12345
 ```
 
@@ -118,9 +118,11 @@ After uploading `MiniEncryptDemo` to the ESP32-S3, capture a ciphertext over ser
 ```bash
 pc_tools/serial/capture_esp_ciphertext.py \
   --port /dev/tty.usbserial-10 \
-  --value 1.25 \
+  --values 1.5,2.25,-3.0,4.75 \
   --out pc_tools/test_vectors/cipher_from_esp.bin \
   --report pc_tools/test_vectors/encrypt_report.txt \
+  --bundle pc_tools/test_vectors/bundle_4096.bin \
+  --secret pc_tools/test_vectors/secret_4096.bin \
   --verify
 ```
 

@@ -14,7 +14,7 @@ This folder contains initial embedded-side scaffolding for bundle parsing and me
 - `src/he_embedded_package.h` and `src/he_embedded_package.cpp`:
   - Parser for compact single-prime embedded package (public key in raw NTT form).
 - `src/mini_ckks_client.h` and `src/mini_ckks_client.cpp`:
-  - Minimal CKKS scalar encode + asymmetric encrypt + SEAL ciphertext serializer.
+  - Minimal CKKS real-vector encode + asymmetric encrypt + SEAL ciphertext serializer.
 
 ## Arduino Example
 
@@ -30,7 +30,7 @@ To use it:
 
 `examples/MiniEncryptDemo/MiniEncryptDemo.ino` demonstrates:
 1. Loading compact embedded package bytes (`embedded_package.bin` converted to C array).
-2. Running minimal scalar CKKS encryption.
+2. Running minimal real-vector CKKS encryption.
 3. Serializing a SEAL-compatible ciphertext buffer and printing metadata.
 4. Printing timing + heap/PSRAM counters for quick board-side monitoring.
 
@@ -38,7 +38,8 @@ To use it:
 
 This now includes a first single-prime (`coeff_modulus_count=1`) encryption core:
 - scalar CKKS encode (repeated slot semantics),
+- real-vector CKKS encode using SEAL-style matrix mapping and inverse complex DWT,
 - RLWE public-key encryption path for fresh ciphertexts,
 - SEAL-compatible ciphertext binary serialization (`compr_mode=none`).
 
-Vector CKKS encode and multi-prime RNS chains are not yet implemented.
+Multi-prime RNS chains are not yet implemented.

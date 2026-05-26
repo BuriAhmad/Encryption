@@ -23,6 +23,9 @@ namespace he_esp
         // Allocated tables/buffers.
         uint64_t *root_powers{ nullptr };
         uint64_t *inv_root_powers{ nullptr };
+        uint32_t *matrix_reps_index_map{ nullptr };
+        double *complex_root_powers{ nullptr };
+        double *complex_inv_root_powers{ nullptr };
         uint64_t n_inv{ 0 };
     };
 
@@ -34,6 +37,11 @@ namespace he_esp
     bool mini_ckks_encrypt_scalar(
         const MiniCkksContext &ctx, double value, uint32_t scale_bits, RandomFillFn rand_fill, void *rand_ctx,
         uint64_t *out_c0, uint64_t *out_c1, const char **error);
+
+    // Encrypt a CKKS vector of real values. values_size may be at most N/2; missing slots encode as zero.
+    bool mini_ckks_encrypt_vector(
+        const MiniCkksContext &ctx, const double *values, size_t values_size, uint32_t scale_bits,
+        RandomFillFn rand_fill, void *rand_ctx, uint64_t *out_c0, uint64_t *out_c1, const char **error);
 
     // Serialize fresh ciphertext (size=2, coeff_modulus_size=1, NTT form) to SEAL-compatible bytes.
     // Returns bytes written, or 0 on failure.

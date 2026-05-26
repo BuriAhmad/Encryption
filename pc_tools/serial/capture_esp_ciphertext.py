@@ -193,6 +193,8 @@ def main() -> int:
                 "2",
                 "--compute-c",
                 "3",
+                "--compute-multiply-scale",
+                "same",
             ]
             print("running_verify=" + " ".join(cmd))
             subprocess.run(cmd, check=True)

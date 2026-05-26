@@ -211,7 +211,7 @@ namespace
                   << "  encrypt-mini --package <path> --out <path> (--value <double>|--values <csv>) [--scale-bits <n>] [--rng-seed <u64>]\n"
                   << "  decrypt-check --bundle <path> --secret <path> --cipher <path> [--expected <csv>] [--print-slots <n>] [--max-abs-err <e>]\n"
                   << "               [--compute-after-pass 1] [--allow-compute-unavailable 0] [--compute-a 1.0] [--compute-b 2.0]\n"
-                  << "               [--compute-c 3.0] [--compute-max-abs-err 0.2]\n";
+                  << "               [--compute-c 3.0] [--compute-multiply-scale stable|same] [--compute-max-abs-err 0.2]\n";
     }
 
     int cmd_export_bundle(const std::map<std::string, std::string> &args)
@@ -610,8 +610,14 @@ namespace
             const double a = args.count("--compute-a") ? std::stod(args.at("--compute-a")) : 1.0;
             const double b = args.count("--compute-b") ? std::stod(args.at("--compute-b")) : 2.0;
             const double c = args.count("--compute-c") ? std::stod(args.at("--compute-c")) : 3.0;
+            const auto multiply_scale_mode =
+                args.count("--compute-multiply-scale") ? args.at("--compute-multiply-scale") : std::string("stable");
             const double compute_threshold =
                 args.count("--compute-max-abs-err") ? std::stod(args.at("--compute-max-abs-err")) : 0.2;
+            if (multiply_scale_mode != "stable" && multiply_scale_mode != "same")
+            {
+                throw std::runtime_error("--compute-multiply-scale must be stable or same");
+            }
 
             try
             {
@@ -621,8 +627,8 @@ namespace
                 Plaintext plain_a, plain_b, plain_c;
                 encoder.encode(a, eval_ct.parms_id(), eval_ct.scale(), plain_a);
                 encoder.encode(b, eval_ct.parms_id(), eval_ct.scale(), plain_b);
-                // Keep the ciphertext scale stable for shallow multiply-by-constant tests.
-                encoder.encode(c, eval_ct.parms_id(), 1.0, plain_c);
+                const double plain_c_scale = (multiply_scale_mode == "same") ? eval_ct.scale() : 1.0;
+                encoder.encode(c, eval_ct.parms_id(), plain_c_scale, plain_c);
 
                 evaluator.add_plain_inplace(eval_ct, plain_a);
                 evaluator.add_plain_inplace(eval_ct, plain_b);
@@ -642,6 +648,7 @@ namespace
                 }
 
                 std::cout << "compute_formula=((x+" << a << ")+" << b << ")*" << c << "\n";
+                std::cout << "compute_multiply_scale=" << multiply_scale_mode << "\n";
                 std::cout << "compute_decoded_first=";
                 for (std::size_t i = 0; i < std::min(print_slots, eval_decoded.size()); ++i)
                 {

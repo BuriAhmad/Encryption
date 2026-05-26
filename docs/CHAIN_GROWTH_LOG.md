@@ -41,3 +41,22 @@ Verification rule for each working step:
 - Failed allocations: 0.
 - Sketch flash after compile: 715967 bytes.
 - Result: safe to try the next larger chain.
+
+## Step 2: `N=8192`, coeff bits `{40,40,40,40}`
+
+- Status: PASS.
+- Same-scale multiply test: PASS for `((x + 1) + 2) * 3`.
+- Package size: 524400 bytes.
+- Ciphertext size: 393329 bytes.
+- Key-level coefficient modulus count: 4.
+- Fresh ciphertext coefficient modulus count: 3.
+- Persistent tracked HE allocation: 819232 bytes.
+- Peak temporary tracked HE allocation delta: 1859697 bytes.
+- Peak tracked HE allocation during encryption: 2678929 bytes.
+- Average encryption time over 5 runs: about 8167 ms.
+- Average serialization time over 5 runs: about 17 ms.
+- Average total time over 5 runs: about 8185 ms.
+- Internal tracked HE allocation: 0 bytes.
+- Failed allocations: 0.
+- Sketch flash after compile: 847039 bytes.
+- Result: safe to try the next larger chain.

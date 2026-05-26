@@ -210,7 +210,8 @@ namespace
                   << "  encrypt-from-bundle --bundle <path> --out <path> --values <csv> [--scale-bits <n>] [--seed-hex <128hex>]\n"
                   << "  encrypt-mini --package <path> --out <path> (--value <double>|--values <csv>) [--scale-bits <n>] [--rng-seed <u64>]\n"
                   << "  decrypt-check --bundle <path> --secret <path> --cipher <path> [--expected <csv>] [--print-slots <n>] [--max-abs-err <e>]\n"
-                  << "               [--compute-after-pass 1] [--compute-a 1.0] [--compute-b 2.0] [--compute-c 3.0] [--compute-max-abs-err 0.2]\n";
+                  << "               [--compute-after-pass 1] [--allow-compute-unavailable 0] [--compute-a 1.0] [--compute-b 2.0]\n"
+                  << "               [--compute-c 3.0] [--compute-max-abs-err 0.2]\n";
     }
 
     int cmd_export_bundle(const std::map<std::string, std::string> &args)
@@ -394,15 +395,10 @@ namespace
         {
             throw std::runtime_error("SEALContext parameters_set=false from bundle params");
         }
-        if (parms.coeff_modulus().size() != 1)
-        {
-            throw std::runtime_error("embedded package currently supports coeff_modulus_count == 1 only");
-        }
-
         PublicKey pk = load_pk_from_blob(context, bundle.payload.public_key_blob);
-        if (pk.data().size() != 2 || pk.data().coeff_modulus_size() != 1)
+        if (pk.data().size() != 2 || pk.data().coeff_modulus_size() != parms.coeff_modulus().size())
         {
-            throw std::runtime_error("public key is not size-2 with coeff_modulus_size=1");
+            throw std::runtime_error("public key has unexpected size or coeff_modulus_size");
         }
 
         he_esp::EmbeddedPackageHeader hdr{};
@@ -414,13 +410,17 @@ namespace
         hdr.poly_modulus_degree = static_cast<uint32_t>(parms.poly_modulus_degree());
         hdr.coeff_modulus = parms.coeff_modulus()[0].value();
         hdr.scale_bits = bundle.header.scale_bits;
+        hdr.coeff_modulus_count = static_cast<uint32_t>(parms.coeff_modulus().size());
         hdr.pk_poly_size = hdr.poly_modulus_degree;
-        std::memcpy(hdr.parms_id, pk.parms_id().data(), sizeof(hdr.parms_id));
+        std::memcpy(hdr.parms_id, context.first_parms_id().data(), sizeof(hdr.parms_id));
 
-        const auto poly_bytes = static_cast<size_t>(hdr.pk_poly_size) * sizeof(uint64_t);
-        std::vector<uint8_t> payload(poly_bytes * 2);
-        std::memcpy(payload.data(), pk.data().data(0), poly_bytes);
-        std::memcpy(payload.data() + poly_bytes, pk.data().data(1), poly_bytes);
+        const auto coeff_moduli_bytes = static_cast<size_t>(hdr.coeff_modulus_count) * sizeof(uint64_t);
+        const auto poly_bytes =
+            static_cast<size_t>(hdr.pk_poly_size) * static_cast<size_t>(hdr.coeff_modulus_count) * sizeof(uint64_t);
+        std::vector<uint8_t> payload(coeff_moduli_bytes + (poly_bytes * 2));
+        std::memcpy(payload.data(), bundle.payload.coeff_modulus_values.data(), coeff_moduli_bytes);
+        std::memcpy(payload.data() + coeff_moduli_bytes, pk.data().data(0), poly_bytes);
+        std::memcpy(payload.data() + coeff_moduli_bytes + poly_bytes, pk.data().data(1), poly_bytes);
         hdr.payload_crc32 = he::crc32(payload.data(), payload.size());
 
         std::vector<uint8_t> out(sizeof(hdr) + payload.size());
@@ -429,8 +429,8 @@ namespace
         he::write_file_binary(out_path, out);
 
         std::cout << "embedded_package_out=" << out_path << " bytes=" << out.size() << "\n";
-        std::cout << "N=" << hdr.poly_modulus_degree << " q=" << hdr.coeff_modulus << " scale_bits=" << hdr.scale_bits
-                  << "\n";
+        std::cout << "N=" << hdr.poly_modulus_degree << " coeff_count=" << hdr.coeff_modulus_count
+                  << " scale_bits=" << hdr.scale_bits << "\n";
         return 0;
     }
 
@@ -485,7 +485,7 @@ namespace
             throw std::runtime_error(std::string("mini init failed: ") + (err ? err : "unknown"));
         }
 
-        const auto n = ctx.poly_modulus_degree;
+        const auto n = static_cast<size_t>(ctx.poly_modulus_degree) * ctx.ciphertext_coeff_modulus_count;
         std::vector<uint64_t> c0(n), c1(n);
         XorShift64 rng{ rng_seed };
 
@@ -613,58 +613,74 @@ namespace
             const double compute_threshold =
                 args.count("--compute-max-abs-err") ? std::stod(args.at("--compute-max-abs-err")) : 0.2;
 
-            Evaluator evaluator(context);
-            Ciphertext eval_ct = ct;
-
-            Plaintext plain_a, plain_b, plain_c;
-            encoder.encode(a, eval_ct.parms_id(), eval_ct.scale(), plain_a);
-            encoder.encode(b, eval_ct.parms_id(), eval_ct.scale(), plain_b);
-            encoder.encode(c, eval_ct.parms_id(), eval_ct.scale(), plain_c);
-
-            evaluator.add_plain_inplace(eval_ct, plain_a);
-            evaluator.add_plain_inplace(eval_ct, plain_b);
-            evaluator.multiply_plain_inplace(eval_ct, plain_c);
-
-            Plaintext eval_plain;
-            decryptor.decrypt(eval_ct, eval_plain);
-            std::vector<double> eval_decoded(encoder.slot_count());
-            encoder.decode(eval_plain, eval_decoded);
-
-            double max_eval_err = 0.0;
-            std::vector<double> expected_eval(expected_vals.size());
-            for (std::size_t i = 0; i < expected_vals.size(); ++i)
+            try
             {
-                expected_eval[i] = (expected_vals[i] + a + b) * c;
-                max_eval_err = std::max(max_eval_err, std::fabs(eval_decoded[i] - expected_eval[i]));
-            }
+                Evaluator evaluator(context);
+                Ciphertext eval_ct = ct;
 
-            std::cout << "compute_formula=((x+" << a << ")+" << b << ")*" << c << "\n";
-            std::cout << "compute_decoded_first=";
-            for (std::size_t i = 0; i < std::min(print_slots, eval_decoded.size()); ++i)
-            {
-                if (i)
+                Plaintext plain_a, plain_b, plain_c;
+                encoder.encode(a, eval_ct.parms_id(), eval_ct.scale(), plain_a);
+                encoder.encode(b, eval_ct.parms_id(), eval_ct.scale(), plain_b);
+                // Keep the ciphertext scale stable for shallow multiply-by-constant tests.
+                encoder.encode(c, eval_ct.parms_id(), 1.0, plain_c);
+
+                evaluator.add_plain_inplace(eval_ct, plain_a);
+                evaluator.add_plain_inplace(eval_ct, plain_b);
+                evaluator.multiply_plain_inplace(eval_ct, plain_c);
+
+                Plaintext eval_plain;
+                decryptor.decrypt(eval_ct, eval_plain);
+                std::vector<double> eval_decoded(encoder.slot_count());
+                encoder.decode(eval_plain, eval_decoded);
+
+                double max_eval_err = 0.0;
+                std::vector<double> expected_eval(expected_vals.size());
+                for (std::size_t i = 0; i < expected_vals.size(); ++i)
                 {
-                    std::cout << ',';
+                    expected_eval[i] = (expected_vals[i] + a + b) * c;
+                    max_eval_err = std::max(max_eval_err, std::fabs(eval_decoded[i] - expected_eval[i]));
                 }
-                std::cout << eval_decoded[i];
-            }
-            std::cout << "\n";
-            std::cout << "compute_expected_first=";
-            for (std::size_t i = 0; i < std::min(print_slots, expected_eval.size()); ++i)
-            {
-                if (i)
+
+                std::cout << "compute_formula=((x+" << a << ")+" << b << ")*" << c << "\n";
+                std::cout << "compute_decoded_first=";
+                for (std::size_t i = 0; i < std::min(print_slots, eval_decoded.size()); ++i)
                 {
-                    std::cout << ',';
+                    if (i)
+                    {
+                        std::cout << ',';
+                    }
+                    std::cout << eval_decoded[i];
                 }
-                std::cout << expected_eval[i];
+                std::cout << "\n";
+                std::cout << "compute_expected_first=";
+                for (std::size_t i = 0; i < std::min(print_slots, expected_eval.size()); ++i)
+                {
+                    if (i)
+                    {
+                        std::cout << ',';
+                    }
+                    std::cout << expected_eval[i];
+                }
+                std::cout << "\n";
+                std::cout << "compute_max_abs_error=" << std::setprecision(17) << max_eval_err << "\n";
+                std::cout << "compute_max_abs_error_threshold=" << compute_threshold << "\n";
+                std::cout << "compute_check=" << ((max_eval_err <= compute_threshold) ? "PASS" : "FAIL") << "\n";
+                if (max_eval_err > compute_threshold)
+                {
+                    return 4;
+                }
             }
-            std::cout << "\n";
-            std::cout << "compute_max_abs_error=" << std::setprecision(17) << max_eval_err << "\n";
-            std::cout << "compute_max_abs_error_threshold=" << compute_threshold << "\n";
-            std::cout << "compute_check=" << ((max_eval_err <= compute_threshold) ? "PASS" : "FAIL") << "\n";
-            if (max_eval_err > compute_threshold)
+            catch (const std::exception &ex)
             {
-                return 4;
+                const bool allow_unavailable = args.count("--allow-compute-unavailable")
+                                                   ? (std::stoi(args.at("--allow-compute-unavailable")) != 0)
+                                                   : false;
+                std::cout << "compute_check=UNAVAILABLE\n";
+                std::cout << "compute_reason=" << ex.what() << "\n";
+                if (!allow_unavailable)
+                {
+                    return 5;
+                }
             }
         }
 

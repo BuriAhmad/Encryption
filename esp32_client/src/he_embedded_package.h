@@ -5,7 +5,7 @@
 
 namespace he_esp
 {
-    constexpr uint32_t kEmbeddedPackageVersion = 1;
+    constexpr uint32_t kEmbeddedPackageVersion = 2;
 
     struct EmbeddedPackageHeader
     {
@@ -14,9 +14,9 @@ namespace he_esp
         uint16_t seal_major;
         uint16_t seal_minor;
         uint32_t poly_modulus_degree;
-        uint64_t coeff_modulus;
+        uint64_t coeff_modulus; // First modulus; kept for v1 compatibility.
         uint32_t scale_bits;
-        uint32_t reserved;
+        uint32_t coeff_modulus_count;
         uint64_t parms_id[4];
         uint32_t pk_poly_size;
         uint32_t payload_crc32;
@@ -25,6 +25,7 @@ namespace he_esp
     struct EmbeddedPackageView
     {
         EmbeddedPackageHeader header{};
+        const uint64_t *coeff_moduli{ nullptr };
         const uint64_t *pk0{ nullptr };
         const uint64_t *pk1{ nullptr };
     };

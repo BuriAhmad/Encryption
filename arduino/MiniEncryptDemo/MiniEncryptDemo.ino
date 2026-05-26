@@ -166,19 +166,29 @@ namespace
     {
         print_size_kv("PACKAGE_BYTES", kEmbeddedPackageBlobSize);
         print_size_kv("N", g_ctx.poly_modulus_degree);
+        print_size_kv("COEFF_MODULUS_COUNT", g_ctx.coeff_modulus_count);
+        print_size_kv("CIPHERTEXT_COEFF_MODULUS_COUNT", g_ctx.ciphertext_coeff_modulus_count);
         print_size_kv("SCALE_BITS", g_ctx.scale_bits);
         print_u64_kv("COEFF_MODULUS", g_ctx.coeff_modulus);
         print_size_kv("SEAL_MAJOR", g_ctx.seal_major);
         print_size_kv("SEAL_MINOR", g_ctx.seal_minor);
-        print_size_kv("C0_BYTES", static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t));
-        print_size_kv("C1_BYTES", static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t));
+        const size_t key_rns_poly_u64_bytes =
+            static_cast<size_t>(g_ctx.poly_modulus_degree) * g_ctx.coeff_modulus_count * sizeof(uint64_t);
+        const size_t ct_rns_poly_u64_bytes =
+            static_cast<size_t>(g_ctx.poly_modulus_degree) * g_ctx.ciphertext_coeff_modulus_count * sizeof(uint64_t);
+        print_size_kv("KEY_LEVEL_RNS_POLY_BYTES", key_rns_poly_u64_bytes);
+        print_size_kv("C0_BYTES", ct_rns_poly_u64_bytes);
+        print_size_kv("C1_BYTES", ct_rns_poly_u64_bytes);
         const size_t poly_u64_bytes = static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint64_t);
         const size_t complex_array_bytes = static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(double) * 2;
-        const size_t persistent_table_bytes = (poly_u64_bytes * 2) +
+        const size_t persistent_table_bytes = (poly_u64_bytes * 2 * g_ctx.coeff_modulus_count) +
                                               (static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(uint32_t)) +
-                                              (complex_array_bytes * 2);
+                                              (complex_array_bytes * 2) +
+                                              (static_cast<size_t>(g_ctx.coeff_modulus_count) * sizeof(uint64_t));
         const size_t encrypt_temp_peak_estimate =
-            (poly_u64_bytes * 6) + he_esp::mini_ckks_ciphertext_serialized_size(g_ctx);
+            (key_rns_poly_u64_bytes * 2) + (ct_rns_poly_u64_bytes * 3) + (poly_u64_bytes * 5) +
+            (static_cast<size_t>(g_ctx.poly_modulus_degree) * sizeof(int8_t) * 3) +
+            he_esp::mini_ckks_ciphertext_serialized_size(g_ctx);
         print_size_kv("VECTOR_ENCODE_COMPLEX_BYTES", complex_array_bytes);
         print_size_kv("PERSISTENT_TABLE_BYTES", persistent_table_bytes);
         print_size_kv("ENCRYPT_TEMP_PEAK_ESTIMATE_BYTES", encrypt_temp_peak_estimate);
@@ -225,9 +235,10 @@ namespace
         metrics.psram_free_start = start_snap.psram_free;
         metrics.psram_free_min_seen = start_snap.psram_free;
 
-        const uint32_t n = g_ctx.poly_modulus_degree;
-        uint64_t *c0 = static_cast<uint64_t *>(he_esp::alloc_he_buffer(sizeof(uint64_t) * n));
-        uint64_t *c1 = static_cast<uint64_t *>(he_esp::alloc_he_buffer(sizeof(uint64_t) * n));
+        const size_t rns_poly_count =
+            static_cast<size_t>(g_ctx.poly_modulus_degree) * g_ctx.ciphertext_coeff_modulus_count;
+        uint64_t *c0 = static_cast<uint64_t *>(he_esp::alloc_he_buffer(sizeof(uint64_t) * rns_poly_count));
+        uint64_t *c1 = static_cast<uint64_t *>(he_esp::alloc_he_buffer(sizeof(uint64_t) * rns_poly_count));
         const size_t out_size = he_esp::mini_ckks_ciphertext_serialized_size(g_ctx);
         uint8_t *out = static_cast<uint8_t *>(he_esp::alloc_he_buffer(out_size));
         update_min_seen(metrics.heap_free_min_seen, metrics.psram_free_min_seen);

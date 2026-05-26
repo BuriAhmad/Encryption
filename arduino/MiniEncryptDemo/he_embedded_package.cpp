@@ -46,7 +46,7 @@ namespace he_esp
         {
             return fail("bad embedded package magic");
         }
-        if (header.version != kEmbeddedPackageVersion)
+        if (header.version != 1 && header.version != kEmbeddedPackageVersion)
         {
             return fail("unsupported embedded package version");
         }
@@ -59,8 +59,18 @@ namespace he_esp
             return fail("pk poly size mismatch");
         }
 
-        const size_t pk_bytes = static_cast<size_t>(header.pk_poly_size) * sizeof(uint64_t);
-        const size_t payload_bytes = pk_bytes * 2;
+        const uint32_t coeff_modulus_count =
+            (header.version == 1) ? 1u : header.coeff_modulus_count;
+        if (coeff_modulus_count == 0)
+        {
+            return fail("invalid coeff_modulus_count");
+        }
+
+        const size_t coeff_moduli_bytes =
+            (header.version == 1) ? 0 : static_cast<size_t>(coeff_modulus_count) * sizeof(uint64_t);
+        const size_t pk_bytes =
+            static_cast<size_t>(header.pk_poly_size) * static_cast<size_t>(coeff_modulus_count) * sizeof(uint64_t);
+        const size_t payload_bytes = coeff_moduli_bytes + (pk_bytes * 2);
         if (sizeof(EmbeddedPackageHeader) + payload_bytes != size)
         {
             return fail("embedded package size mismatch");
@@ -76,8 +86,10 @@ namespace he_esp
         ok.ok = true;
         ok.error = nullptr;
         ok.view.header = header;
-        ok.view.pk0 = reinterpret_cast<const uint64_t *>(payload);
-        ok.view.pk1 = reinterpret_cast<const uint64_t *>(payload + pk_bytes);
+        ok.view.header.coeff_modulus_count = coeff_modulus_count;
+        ok.view.coeff_moduli = (header.version == 1) ? nullptr : reinterpret_cast<const uint64_t *>(payload);
+        ok.view.pk0 = reinterpret_cast<const uint64_t *>(payload + coeff_moduli_bytes);
+        ok.view.pk1 = reinterpret_cast<const uint64_t *>(payload + coeff_moduli_bytes + pk_bytes);
         return ok;
     }
 } // namespace he_esp

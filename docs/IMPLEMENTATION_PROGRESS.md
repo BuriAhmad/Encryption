@@ -1,6 +1,6 @@
 # Implementation Progress
 
-Date: 2026-05-26
+Date: 2026-05-27
 
 ## Completed in this increment
 
@@ -42,6 +42,11 @@ Date: 2026-05-26
   - `ENCRYPT` now accepts comma-separated vector values, e.g. `ENCRYPT 1.5,2.25,-3.0,4.75`.
   - Embedded vector encoder mirrors SEAL's CKKS matrix index map and inverse complex DWT flow.
   - Embedded NTT root selection was corrected to SEAL's minimal primitive root convention.
+- Added first multi-prime public-key/package support for `N=4096`, coeff bits `{40,40}`:
+  - Embedded package version 2 stores `q_values[K]`, `pk0[K][N]`, and `pk1[K][N]`.
+  - Encryption runs at the SEAL key level and then drops the special/key prime for fresh CKKS ciphertexts.
+  - Ciphertext serialization writes the ciphertext data-level modulus count rather than assuming the key-level count.
+  - Host verification now keeps shallow multiply-by-constant tests inside scale bounds by encoding the multiplier at scale 1.
 
 ## Validated flow
 
@@ -58,9 +63,10 @@ Date: 2026-05-26
 - Milestone 1 (parameter loading + public key loading): **in progress / scaffolded**
   - Host bundle format is implemented and validated with CRC.
   - Embedded parser exists and validates bundle structure.
-- Milestone 4 (encryption): **initial single-prime implementation**
-  - Scalar encode + asymmetric encrypt path implemented in `mini_ckks_client`.
-- Milestone 5 (serialization): **initial implementation**
+- Milestone 4 (encryption): **multi-prime key-level implementation**
+  - Scalar/vector encode + asymmetric public-key encrypt path implemented in `mini_ckks_client`.
+  - Supports one SEAL-style key-prime drop for `{data, special}` chains such as `{40,40}`.
+- Milestone 5 (serialization): **initial SEAL-compatible implementation**
   - Mini core serializes SEAL-compatible ciphertext binary (`compr_mode=none`).
 - Milestone 7 test artifact requirement (deterministic vectors): **initial implementation complete**
 - Hardware upload/capture smoke test: **initial implementation complete**
@@ -85,11 +91,24 @@ Date: 2026-05-26
   - Compute-after-decrypt-check: passed for `((x + 1) + 2) * 3`
   - Average vector encryption time at `N=4096`: about 1196 ms
   - Temporary tracked HE allocation peak delta at `N=4096`: about 262257 bytes
+- Multi-prime `N=4096,{40,40}` hardware test: **encryption/decrypt complete**
+  - Tested serial command path: `ENCRYPT 1.5,2.25,-3.0,4.75`
+  - Public-key package size: 131168 bytes
+  - Key-level coefficient modulus count: 2
+  - Fresh ciphertext coefficient modulus count: 1
+  - Captured ciphertext size: 65649 bytes
+  - Decrypt check: passed with max absolute error about 0.00292
+  - Compute-after-decrypt-check passed for `((x + 1) + 2) * 3` after encoding the plaintext multiplier at scale 1.
+  - Average encryption time over 5 runs: about 2057 ms
+  - Average total time over 5 runs: about 2060 ms
+  - Persistent tracked HE allocation after setup: about 278544 bytes
+  - Temporary tracked HE allocation peak delta: about 471153 bytes
+  - Tracked HE allocations used PSRAM; internal tracked HE allocation stayed at 0 bytes.
 
 ## Not implemented yet
 
-- Multi-prime (`K>1`) RNS path
+- Data-level ciphertexts with more than one usable computation prime; this needs a longer chain such as `{40,40,40}`.
 - Seeded ciphertext/public-key serialization paths
 - Binary serial/Wi-Fi transport for larger ciphertexts
-- Larger/more realistic memory benchmarking before increasing parameter sizes.
+- Larger/more realistic memory benchmarking for `N=8192`.
 - External-tool energy measurement is intentionally deferred.

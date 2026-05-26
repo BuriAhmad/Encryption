@@ -14,9 +14,12 @@ namespace he_esp
         uint16_t seal_major{ 0 };
         uint16_t seal_minor{ 0 };
         uint32_t poly_modulus_degree{ 0 };
+        uint32_t coeff_modulus_count{ 0 };
+        uint32_t ciphertext_coeff_modulus_count{ 0 };
         uint64_t coeff_modulus{ 0 };
         uint32_t scale_bits{ 0 };
         uint64_t parms_id[4]{};
+        const uint64_t *coeff_moduli{ nullptr };
         const uint64_t *pk0{ nullptr };
         const uint64_t *pk1{ nullptr };
 
@@ -26,19 +29,20 @@ namespace he_esp
         uint32_t *matrix_reps_index_map{ nullptr };
         double *complex_root_powers{ nullptr };
         double *complex_inv_root_powers{ nullptr };
-        uint64_t n_inv{ 0 };
+        uint64_t *n_inv{ nullptr };
     };
 
     bool mini_ckks_init_from_package(const EmbeddedPackageView &pkg, MiniCkksContext &ctx, const char **error);
     void mini_ckks_release(MiniCkksContext &ctx);
 
     // Encrypt a scalar value (repeated slot semantics) with CKKS-compatible scale.
-    // out_c0/out_c1 must each have N uint64_t entries.
+    // out_c0/out_c1 must each have N*K uint64_t entries.
     bool mini_ckks_encrypt_scalar(
         const MiniCkksContext &ctx, double value, uint32_t scale_bits, RandomFillFn rand_fill, void *rand_ctx,
         uint64_t *out_c0, uint64_t *out_c1, const char **error);
 
     // Encrypt a CKKS vector of real values. values_size may be at most N/2; missing slots encode as zero.
+    // out_c0/out_c1 must each have N*K uint64_t entries.
     bool mini_ckks_encrypt_vector(
         const MiniCkksContext &ctx, const double *values, size_t values_size, uint32_t scale_bits,
         RandomFillFn rand_fill, void *rand_ctx, uint64_t *out_c0, uint64_t *out_c1, const char **error);

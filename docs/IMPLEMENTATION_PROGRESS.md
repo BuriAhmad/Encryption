@@ -104,11 +104,24 @@ Date: 2026-05-27
   - Persistent tracked HE allocation after setup: about 278544 bytes
   - Temporary tracked HE allocation peak delta: about 471153 bytes
   - Tracked HE allocations used PSRAM; internal tracked HE allocation stayed at 0 bytes.
+- Multi-prime `N=8192,{40,40}` hardware test: **encryption/decrypt/compute complete**
+  - Tested serial command path: `ENCRYPT 1.5,2.25,-3.0,4.75`
+  - Public-key package size: 262240 bytes
+  - Key-level coefficient modulus count: 2
+  - Fresh ciphertext coefficient modulus count: 1
+  - Captured ciphertext size: 131185 bytes
+  - Decrypt check: passed with max absolute error about 0.000893
+  - Compute-after-decrypt-check passed for `((x + 1) + 2) * 3` with max absolute error about 0.00268
+  - Average encryption time over 5 runs: about 4460 ms
+  - Average total time over 5 runs: about 4467 ms
+  - Persistent tracked HE allocation after setup: about 557072 bytes
+  - Temporary tracked HE allocation peak delta: about 942193 bytes
+  - Tracked HE allocations used PSRAM; internal tracked HE allocation stayed at 0 bytes.
 
 ## Not implemented yet
 
 - Data-level ciphertexts with more than one usable computation prime; this needs a longer chain such as `{40,40,40}`.
 - Seeded ciphertext/public-key serialization paths
 - Binary serial/Wi-Fi transport for larger ciphertexts
-- Larger/more realistic memory benchmarking for `N=8192`.
+- Longer modulus chains, e.g. `{40,40,40}`, for ciphertext-ciphertext multiplication and rescale-heavy workloads.
 - External-tool energy measurement is intentionally deferred.

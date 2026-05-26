@@ -1,0 +1,20 @@
+# Local/editor files
+.DS_Store
+.vscode/
+.idea/
+
+# External dependency checkout/builds
+SEAL/
+pc_tools/build/
+
+# Generated HE test artifacts.
+# secret.bin contains the CKKS secret key and must not be committed.
+pc_tools/test_vectors/*.bin
+pc_tools/test_vectors/*.txt
+
+# Arduino/ESP build outputs
+*.elf
+*.bin
+*.hex
+*.uf2
+*.map

@@ -110,23 +110,26 @@ Compile the Arduino sketch:
 ```bash
 arduino-cli compile \
   --fqbn esp32:esp32:esp32s3:PSRAM=opi,PartitionScheme=huge_app,FlashSize=4M,UploadSpeed=115200 \
-  /Users/burhanahmadkhan/Documents/Arduino/MiniEncryptDemo
+  ~/Documents/Arduino/MiniEncryptDemo
 ```
 
 Upload to the board:
 
 ```bash
+# Find your port first (it may differ):
+arduino-cli board list
+
 arduino-cli upload \
-  -p /dev/tty.usbserial-10 \
+  -p /dev/tty.usbserial-XXX \
   --fqbn esp32:esp32:esp32s3:PSRAM=opi,PartitionScheme=huge_app,FlashSize=4M,UploadSpeed=115200 \
-  /Users/burhanahmadkhan/Documents/Arduino/MiniEncryptDemo
+  ~/Documents/Arduino/MiniEncryptDemo
 ```
 
 Capture, decrypt, and verify:
 
 ```bash
 pc_tools/serial/capture_esp_ciphertext.py \
-  --port /dev/tty.usbserial-10 \
+  --port /dev/tty.usbserial-XXX \
   --values 1.5,2.25,-3.0,4.75 \
   --out pc_tools/test_vectors/cipher_from_esp.bin \
   --bundle pc_tools/test_vectors/bundle_8192_40x5.bin \
@@ -145,7 +148,7 @@ pc_tools/serial/capture_esp_ciphertext.py \
 
 ## Recommended Reading
 
-- [Hardware Test Flow](</Users/burhanahmadkhan/Desktop/lums coursework/Encryption/docs/HARDWARE_TEST_FLOW.md>)
-- [Chain Growth Log](</Users/burhanahmadkhan/Desktop/lums coursework/Encryption/docs/CHAIN_GROWTH_LOG.md>)
-- [Mini Client Formats](</Users/burhanahmadkhan/Desktop/lums coursework/Encryption/docs/MINI_CLIENT_FORMATS.md>)
-- [ESP32 CKKS SEAL Design](</Users/burhanahmadkhan/Desktop/lums coursework/Encryption/docs/ESP32_CKKS_SEAL_DESIGN.md>)
+- `docs/HARDWARE_TEST_FLOW.md`
+- `docs/CHAIN_GROWTH_LOG.md`
+- `docs/MINI_CLIENT_FORMATS.md`
+- `docs/ESP32_CKKS_SEAL_DESIGN.md`

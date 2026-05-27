@@ -79,3 +79,19 @@ Verification rule for each working step:
 - Failed allocations: 0.
 - Sketch flash after compile: 978127 bytes.
 - Result: safe to attempt the 6-prime limit, but SEAL security limits may reject it for `N=8192`.
+
+## Step 4: `N=8192`, coeff bits `{40,40,40,40,40,40}`
+
+- Status: FAIL before ESP32 upload.
+- Failure point: PC-side SEAL parameter validation.
+- Error: `SEALContext parameters_set=false`.
+- Interpretation: six 40-bit primes give a 240-bit coefficient modulus, which is too large for the `N=8192` security budget used by normal SEAL validation.
+- ESP32 memory was not tested for this step because no valid SEAL-compatible parameter bundle could be generated.
+- Rollback status: no rollback action was needed; the active Arduino package remained the previous working `N=8192,{40,40,40,40,40}` package.
+
+## Current Maximum Working Chain
+
+- Maximum validated chain at `N=8192` with 40-bit primes: `{40,40,40,40,40}`.
+- Key-level coefficient modulus count: 5.
+- Fresh ciphertext coefficient modulus count after dropping the special/key prime: 4.
+- This leaves enough scale budget for the same-scale shallow plaintext multiplication test used here.

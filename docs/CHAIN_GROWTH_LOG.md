@@ -60,3 +60,22 @@ Verification rule for each working step:
 - Failed allocations: 0.
 - Sketch flash after compile: 847039 bytes.
 - Result: safe to try the next larger chain.
+
+## Step 3: `N=8192`, coeff bits `{40,40,40,40,40}`
+
+- Status: PASS.
+- Same-scale multiply test: PASS for `((x + 1) + 2) * 3`.
+- Package size: 655480 bytes.
+- Ciphertext size: 524401 bytes.
+- Key-level coefficient modulus count: 5.
+- Fresh ciphertext coefficient modulus count: 4.
+- Persistent tracked HE allocation: 950312 bytes.
+- Peak temporary tracked HE allocation delta: 2318449 bytes.
+- Peak tracked HE allocation during encryption: 3268761 bytes.
+- Average encryption time over 5 runs: about 10033 ms.
+- Average serialization time over 5 runs: about 23 ms.
+- Average total time over 5 runs: about 10056 ms.
+- Internal tracked HE allocation: 0 bytes.
+- Failed allocations: 0.
+- Sketch flash after compile: 978127 bytes.
+- Result: safe to attempt the 6-prime limit, but SEAL security limits may reject it for `N=8192`.

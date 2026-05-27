@@ -11,13 +11,13 @@ cmake -S "${ROOT_DIR}/pc_tools" -B "${BUILD_DIR}"
 cmake --build "${BUILD_DIR}" -j4
 
 SEED="00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
-VALUES="1.25,-2.5,3.75,4.5"
+VALUES="1.5,2.25,-3.0,4.75"
 
 "${BUILD_DIR}/he_tool" export-bundle \
   --bundle-out "${OUT_DIR}/bundle.bin" \
   --secret-out "${OUT_DIR}/secret.bin" \
-  --poly 4096 \
-  --coeff-bits 50 \
+  --poly 8192 \
+  --coeff-bits 40,40,40,40,40 \
   --scale-bits 20 \
   --seed-hex "${SEED}"
 
@@ -42,14 +42,16 @@ VALUES="1.25,-2.5,3.75,4.5"
   --secret "${OUT_DIR}/secret.bin" \
   --cipher "${OUT_DIR}/cipher.bin" \
   --expected "${VALUES}" \
-  --print-slots 8 | tee "${OUT_DIR}/decrypt_report.txt"
+  --print-slots 8 \
+  --compute-multiply-scale same | tee "${OUT_DIR}/decrypt_report.txt"
 
 "${BUILD_DIR}/he_tool" decrypt-check \
   --bundle "${OUT_DIR}/bundle.bin" \
   --secret "${OUT_DIR}/secret.bin" \
   --cipher "${OUT_DIR}/mini_cipher.bin" \
   --expected "${VALUES}" \
-  --print-slots 8 | tee "${OUT_DIR}/mini_decrypt_report.txt"
+  --print-slots 8 \
+  --compute-multiply-scale same | tee "${OUT_DIR}/mini_decrypt_report.txt"
 
 cat > "${OUT_DIR}/vector_manifest.txt" <<EOF
 bundle=bundle.bin
@@ -58,6 +60,9 @@ cipher=cipher.bin
 embedded_package=embedded_package.bin
 mini_cipher=mini_cipher.bin
 values=${VALUES}
+poly=8192
+coeff_bits=40,40,40,40,40
+scale_bits=20
 seed_hex=${SEED}
 EOF
 

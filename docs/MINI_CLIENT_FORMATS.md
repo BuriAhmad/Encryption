@@ -1,63 +1,89 @@
-# Mini Client Formats (Current v1)
+# Mini Client Formats
 
-Date: 2026-05-16
+Date: 2026-05-27
 
-## 1) Host Bundle (`bundle.bin`)
-
-Produced by:
-- `he_tool export-bundle`
-
-Purpose:
-- Full host/interop artifact containing SEAL parameter blob + SEAL public key blob.
-
-Layout:
-- Fixed header (`HEBNDL1`) with version/scheme/sizes/CRC
-- coeff modulus values section
-- serialized `EncryptionParameters` (SEAL binary, `compr_mode=none`)
-- serialized `PublicKey` (SEAL binary, `compr_mode=none`)
-
-## 2) Embedded Package (`embedded_package.bin`)
+## 1) Host Bundle
 
 Produced by:
-- `he_tool export-embedded-package --bundle ...`
+
+```text
+pc_tools/build/he_tool export-bundle
+```
 
 Purpose:
-- Compact package for the mini embedded encryption core.
+
+- PC-side artifact containing SEAL encryption parameters and SEAL public key.
+- Also used with the secret key on the PC for decrypt/compute verification.
+
+Contents:
+
+- Fixed header (`HEBNDL1`) with sizes and CRCs.
+- Coefficient modulus values.
+- Serialized SEAL `EncryptionParameters` (`compr_mode=none`).
+- Serialized SEAL `PublicKey` (`compr_mode=none`).
+
+This file is not loaded directly on the ESP32.
+
+## 2) Embedded Package v2
+
+Produced by:
+
+```text
+pc_tools/build/he_tool export-embedded-package
+```
+
+Purpose:
+
+- Compact ESP32 package.
 - Avoids implementing full SEAL object deserialization on-device.
+- Stores only the values needed for encode/encrypt/serialize.
 
 Current constraints:
-- CKKS only
-- `coeff_modulus_count == 1`
-- fresh public key only (`size=2`, key-level NTT form)
+
+- CKKS only.
+- Public-key encryption only.
+- Public key must have two polynomials.
+- Supports multi-prime key-level RNS packages.
+- Fresh ciphertexts are serialized at the first data level, after dropping the special/key prime.
 
 Layout:
-- Header magic `HEPKG1\0\0`
-- SEAL major/minor version
-- `poly_modulus_degree`
-- single coeff modulus `q`
-- scale bits
-- `parms_id` (4 x uint64)
-- `pk_poly_size` (= N)
-- payload CRC32
-- payload:
-  - `pk0` NTT coefficients (`N * uint64`)
-  - `pk1` NTT coefficients (`N * uint64`)
 
-## 3) Mini Ciphertext Output (`mini_cipher.bin`)
+```text
+EmbeddedPackageHeader
+q_values[K]
+pk0[K][N]
+pk1[K][N]
+```
+
+Important fields:
+
+- `poly_modulus_degree`: `N`.
+- `coeff_modulus_count`: key-level RNS count `K`.
+- `coeff_modulus`: first modulus, retained for v1 compatibility.
+- `parms_id`: SEAL first-context `parms_id`, matching the fresh ciphertext level.
+- `payload_crc32`: CRC over `q_values`, `pk0`, and `pk1`.
+
+## 3) Mini Ciphertext Output
 
 Produced by:
-- `he_tool encrypt-mini`
-- or on-device via `mini_ckks_serialize_ciphertext`
+
+- `pc_tools/build/he_tool encrypt-mini`
+- ESP32 serial command `ENCRYPT ...`
 
 Purpose:
+
 - SEAL-compatible ciphertext bytes for PC-side `Ciphertext::load`.
 
 Properties:
-- `compr_mode=none`
-- ciphertext size = 2
-- coeff modulus size = 1
-- NTT form = true
-- nested DynArray serialization follows SEAL binary layout
+
+- `compr_mode=none`.
+- Ciphertext size = 2.
+- NTT form = true.
+- `coeff_modulus_size = coeff_modulus_count - 1` for multi-prime packages.
+- Nested DynArray serialization follows SEAL binary layout.
 
 Validated by:
-- `he_tool decrypt-check --bundle ... --secret ... --cipher mini_cipher.bin`
+
+```text
+pc_tools/build/he_tool decrypt-check
+```

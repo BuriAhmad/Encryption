@@ -92,8 +92,8 @@ pc_tools/serial/capture_esp_ciphertext.py \
   --port /dev/tty.usbserial-10 \
   --values 1.5,2.25,-3.0,4.75 \
   --out pc_tools/test_vectors/cipher_from_esp.bin \
-  --bundle pc_tools/test_vectors/bundle_4096.bin \
-  --secret pc_tools/test_vectors/secret_4096.bin \
+  --bundle pc_tools/test_vectors/bundle_8192_40x5.bin \
+  --secret pc_tools/test_vectors/secret_8192_40x5.bin \
   --verify
 ```
 

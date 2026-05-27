@@ -274,26 +274,14 @@ namespace he_esp
                                         hamming_weight_u8(x[3]) - hamming_weight_u8(x[4]) - hamming_weight_u8(x[5]));
         }
 
-        uint64_t sample_ternary_coeff(RandomFillFn rand_fill, void *rand_ctx, uint64_t mod)
-        {
-            uint8_t b = 0;
-            rand_fill(rand_ctx, &b, 1);
-            uint8_t r = static_cast<uint8_t>(b % 3u);
-            if (r == 0)
-            {
-                return mod - 1; // -1 mod q
-            }
-            if (r == 1)
-            {
-                return 0;
-            }
-            return 1;
-        }
-
         int8_t sample_ternary_signed(RandomFillFn rand_fill, void *rand_ctx)
         {
             uint8_t b = 0;
-            rand_fill(rand_ctx, &b, 1);
+            do
+            {
+                rand_fill(rand_ctx, &b, 1);
+            } while (b >= 252u);
+
             uint8_t r = static_cast<uint8_t>(b % 3u);
             if (r == 0)
             {

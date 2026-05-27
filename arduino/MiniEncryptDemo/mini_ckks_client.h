@@ -36,18 +36,18 @@ namespace he_esp
     void mini_ckks_release(MiniCkksContext &ctx);
 
     // Encrypt a scalar value (repeated slot semantics) with CKKS-compatible scale.
-    // out_c0/out_c1 must each have N*K uint64_t entries.
+    // out_c0/out_c1 must each have N*ciphertext_coeff_modulus_count uint64_t entries.
     bool mini_ckks_encrypt_scalar(
         const MiniCkksContext &ctx, double value, uint32_t scale_bits, RandomFillFn rand_fill, void *rand_ctx,
         uint64_t *out_c0, uint64_t *out_c1, const char **error);
 
     // Encrypt a CKKS vector of real values. values_size may be at most N/2; missing slots encode as zero.
-    // out_c0/out_c1 must each have N*K uint64_t entries.
+    // out_c0/out_c1 must each have N*ciphertext_coeff_modulus_count uint64_t entries.
     bool mini_ckks_encrypt_vector(
         const MiniCkksContext &ctx, const double *values, size_t values_size, uint32_t scale_bits,
         RandomFillFn rand_fill, void *rand_ctx, uint64_t *out_c0, uint64_t *out_c1, const char **error);
 
-    // Serialize fresh ciphertext (size=2, coeff_modulus_size=1, NTT form) to SEAL-compatible bytes.
+    // Serialize fresh ciphertext (size=2, NTT form) to SEAL-compatible bytes.
     // Returns bytes written, or 0 on failure.
     size_t mini_ckks_serialize_ciphertext(
         const MiniCkksContext &ctx, double scale, const uint64_t *c0, const uint64_t *c1, uint8_t *out,

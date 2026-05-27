@@ -4,6 +4,8 @@
 
 namespace he_esp
 {
+    static_assert(sizeof(EmbeddedPackageHeader) % alignof(uint64_t) == 0, "package payload must be uint64-aligned");
+
     namespace
     {
         constexpr char kMagic[8] = { 'H', 'E', 'P', 'K', 'G', '1', '\0', '\0' };

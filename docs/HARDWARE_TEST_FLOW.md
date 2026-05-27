@@ -23,7 +23,7 @@ flowchart LR
 - PC-side key/parameter generation works through Microsoft SEAL.
 - PC-side export of a compact ESP32 package works.
 - ESP32-side package loading works.
-- ESP32-side real-vector CKKS encryption works for the current single-prime `N=4096` test setup.
+- ESP32-side real-vector CKKS encryption works for the current multi-prime `N=8192` test setup.
 - ESP32-side ciphertext serialization is SEAL-compatible.
 - Serial capture from ESP32 to PC works.
 - PC-side SEAL can decrypt the ESP32 ciphertext.
@@ -36,10 +36,10 @@ flowchart LR
 ## What Is Not Final Yet
 
 - This is still a prototype, not production crypto.
-- Multi-prime RNS chains are not implemented on the ESP32 yet.
-- Only the current single-prime parameter path is implemented.
-- Full CKKS vector packing is not implemented on the ESP32 yet.
-- Multi-prime RNS chains are not implemented on the ESP32 yet.
+- The current validated maximum at `N=8192` is `{40,40,40,40,40}`.
+- Six 40-bit primes at `N=8192` are rejected by SEAL parameter validation.
+- Complex-valued CKKS input is not implemented; the ESP32 currently encodes real vectors.
+- Ciphertext transport is still serial hex, which is simple but slow for large ciphertexts.
 - Runtime PSRAM behavior still needs more checking; one successful board run showed encryption working, but PSRAM counters should be watched carefully.
 
 ## Folder Roles
@@ -124,8 +124,8 @@ pc_tools/serial/capture_esp_ciphertext.py \
   --values 1.5,2.25,-3.0,4.75 \
   --out pc_tools/test_vectors/cipher_from_esp.bin \
   --report pc_tools/test_vectors/encrypt_report.txt \
-  --bundle pc_tools/test_vectors/bundle_4096.bin \
-  --secret pc_tools/test_vectors/secret_4096.bin \
+  --bundle pc_tools/test_vectors/bundle_8192_40x5.bin \
+  --secret pc_tools/test_vectors/secret_8192_40x5.bin \
   --verify
 ```
 
@@ -186,35 +186,36 @@ That `.bin` file is then passed into normal Microsoft SEAL on the PC.
 
 ## Current Measured Prototype Numbers
 
-These are from the ESP32-S3 CAM test using `N = 4096`, `scale_bits = 20`, and `PSRAM=opi`.
+These are from the ESP32-S3 CAM test using `N = 8192`, coeff bits `{40,40,40,40,40}`, `scale_bits = 20`, and `PSRAM=opi`.
 
 ```text
-N=4096
+N=8192
 SCALE_BITS=20
-COEFF_MODULUS=1125899906826241
-PACKAGE_BYTES=65616
-C0_BYTES=32768
-C1_BYTES=32768
-PERSISTENT_TABLE_BYTES=212992
-CIPHERTEXT_SERIALIZED_BYTES=65649
-ENCRYPT_MS_AVG=1196
-SERIALIZE_MS_AVG=3
-TOTAL_MS_AVG=1199
-TRACKED_PEAK_DELTA_MAX=262257
-TRACKED_PSRAM_PEAK_DELTA_MAX=262257
+COEFF_MODULUS_COUNT=5
+CIPHERTEXT_COEFF_MODULUS_COUNT=4
+PACKAGE_BYTES=655480
+C0_BYTES=262144
+C1_BYTES=262144
+PERSISTENT_TABLE_BYTES=950312
+CIPHERTEXT_SERIALIZED_BYTES=524401
+ENCRYPT_MS_AVG=10033
+SERIALIZE_MS_AVG=23
+TOTAL_MS_AVG=10056
+TRACKED_PEAK_DELTA_MAX=2318449
+TRACKED_PSRAM_PEAK_DELTA_MAX=2318449
 TRACKED_INTERNAL_PEAK_DELTA_MAX=0
-PSRAM_FREE_BEFORE=8164396
-PSRAM_FREE_MIN_SEEN=8029216
-PSRAM_FREE_AFTER=8164396
+PSRAM_FREE_BEFORE=7408100
+PSRAM_FREE_MIN_SEEN=6326744
+PSRAM_FREE_AFTER=7408100
 ```
 
 Plain-English meaning:
 
-- The always-loaded encoder/NTT tables use about `213 KB`.
-- A single vector encryption temporarily needs about `262 KB` more tracked HE buffer memory.
+- The always-loaded encoder/NTT tables use about `928 KB`.
+- A single vector encryption temporarily needs about `2.21 MB` more tracked HE buffer memory.
 - That temporary HE memory is going into PSRAM, not internal RAM.
 - Internal heap stayed stable during the measured encryption command.
-- Encryption currently takes about `1.2 seconds` for the `N=4096` vector prototype.
+- Encryption currently takes about `10.0 seconds` for the max validated `N=8192,{40}x5` vector prototype.
 
 ## Measurement Caveats
 

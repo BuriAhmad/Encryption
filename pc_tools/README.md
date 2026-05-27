@@ -49,7 +49,7 @@ pc_tools/build/he_tool export-eval-keys \
   --galois-steps 1,2,4,8
 ```
 
-The current one-prime prototype cannot create these keys because SEAL key-switching requires a multi-prime modulus chain. This command is for the next multi-prime/server-computation phase.
+Evaluation keys are for the PC/server only. The ESP32 encryption client never stores relin or Galois keys.
 
 ### 2) Encrypt from bundle
 
@@ -60,7 +60,7 @@ pc_tools/build/he_tool encrypt-from-bundle \
   --values "1.25,-2.5,3.75,4.5"
 ```
 
-### 3) Export embedded package (single-prime v1)
+### 3) Export embedded package
 
 ```bash
 pc_tools/build/he_tool export-embedded-package \
@@ -121,8 +121,8 @@ pc_tools/serial/capture_esp_ciphertext.py \
   --values 1.5,2.25,-3.0,4.75 \
   --out pc_tools/test_vectors/cipher_from_esp.bin \
   --report pc_tools/test_vectors/encrypt_report.txt \
-  --bundle pc_tools/test_vectors/bundle_4096.bin \
-  --secret pc_tools/test_vectors/secret_4096.bin \
+  --bundle pc_tools/test_vectors/bundle_8192_40x5.bin \
+  --secret pc_tools/test_vectors/secret_8192_40x5.bin \
   --verify
 ```
 
@@ -146,11 +146,7 @@ pc_tools/serial/capture_esp_ciphertext.py \
 
 ```bash
 pc_tools/scripts/bin_to_c_array.py \
-  pc_tools/test_vectors/bundle.bin \
-  esp32_client/examples/BundleInspector/bundle_blob_example.h
-
-pc_tools/scripts/bin_to_c_array.py \
   pc_tools/test_vectors/embedded_package.bin \
-  esp32_client/examples/MiniEncryptDemo/embedded_package_blob.h \
+  arduino/MiniEncryptDemo/embedded_package_blob.h \
   --var kEmbeddedPackageBlob
 ```

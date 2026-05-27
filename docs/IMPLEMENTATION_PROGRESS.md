@@ -11,14 +11,11 @@ Date: 2026-05-27
 - Added deterministic interoperability workflow:
   - `pc_tools/scripts/generate_test_vector.sh`
   - `pc_tools/scripts/bin_to_c_array.py`
-- Added embedded-side bundle parser/memory scaffolding:
-  - `esp32_client/src/he_bundle_format.h`
-  - `esp32_client/src/he_bundle_format.cpp`
-  - `esp32_client/src/he_memory_plan.h`
-  - `esp32_client/src/he_memory_plan.cpp`
+- Added embedded-side allocation and package scaffolding:
   - `esp32_client/src/he_allocator.h`
   - `esp32_client/src/he_allocator.cpp`
-  - `esp32_client/examples/BundleInspector/BundleInspector.ino`
+  - `esp32_client/src/he_embedded_package.h`
+  - `esp32_client/src/he_embedded_package.cpp`
 - Added compact embedded package + mini encryption core:
   - `esp32_client/src/he_embedded_package.h`
   - `esp32_client/src/he_embedded_package.cpp`
@@ -34,8 +31,7 @@ Date: 2026-05-27
   - `MEM` command for immediate heap/PSRAM/tracked allocation state
   - `BENCH <value> <runs>` command for repeated encryption timing/memory measurements
   - PSRAM-preferred allocation tracker with current/peak/internal/PSRAM counters
-- Added next-phase planning and PC/server evaluation-key scaffolding:
-  - `docs/NEXT_PHASE_VECTOR_RNS_EVAL_KEYS.md`
+- Added PC/server evaluation-key scaffolding:
   - `docs/PARAMETER_FEASIBILITY_4K_8K.md`
   - `pc_tools/build/he_tool export-eval-keys` command for future multi-prime bundles
 - Upgraded the active embedded prototype from scalar `N=2048` to vector CKKS encoding at `N=4096`:
@@ -46,7 +42,7 @@ Date: 2026-05-27
   - Embedded package version 2 stores `q_values[K]`, `pk0[K][N]`, and `pk1[K][N]`.
   - Encryption runs at the SEAL key level and then drops the special/key prime for fresh CKKS ciphertexts.
   - Ciphertext serialization writes the ciphertext data-level modulus count rather than assuming the key-level count.
-  - Host verification now keeps shallow multiply-by-constant tests inside scale bounds by encoding the multiplier at scale 1.
+  - Host verification supports both stable-scale and same-scale multiply-by-constant tests.
 
 ## Validated flow
 
@@ -60,9 +56,9 @@ Date: 2026-05-27
 
 ## Current status against milestones
 
-- Milestone 1 (parameter loading + public key loading): **in progress / scaffolded**
+- Milestone 1 (parameter loading + public key loading): **complete for compact embedded packages**
   - Host bundle format is implemented and validated with CRC.
-  - Embedded parser exists and validates bundle structure.
+  - Embedded package parser validates magic, version, sizing, and CRC.
 - Milestone 4 (encryption): **multi-prime key-level implementation**
   - Scalar/vector encode + asymmetric public-key encrypt path implemented in `mini_ckks_client`.
   - Supports one SEAL-style key-prime drop for `{data, special}` chains such as `{40,40}`.
@@ -81,9 +77,9 @@ Date: 2026-05-27
   - Average serialization time: about 1 ms
   - Temporary tracked HE allocation peak delta: about 131185 bytes
   - Temporary tracked HE allocations used PSRAM, not internal RAM
-- Evaluation-key export: **scaffolded for future multi-prime parameters**
-  - Current single-prime parameters cannot use SEAL key-switching.
-  - A host-side smoke test with `N=4096` and two 36-bit primes successfully exported relin and selected Galois keys.
+- Evaluation-key export: **PC/server helper available**
+  - Relin and Galois keys are exported for server-side computation only.
+  - The ESP32 encryption client does not store evaluation keys.
 - Vector/N=4096 hardware test: **initial implementation complete**
   - Tested serial command path: `ENCRYPT 1.5,2.25,-3.0,4.75`
   - Captured ciphertext size: 65649 bytes
@@ -98,7 +94,7 @@ Date: 2026-05-27
   - Fresh ciphertext coefficient modulus count: 1
   - Captured ciphertext size: 65649 bytes
   - Decrypt check: passed with max absolute error about 0.00292
-  - Compute-after-decrypt-check passed for `((x + 1) + 2) * 3` after encoding the plaintext multiplier at scale 1.
+  - Compute-after-decrypt-check passed for `((x + 1) + 2) * 3` using the stable-scale multiply-by-constant mode.
   - Average encryption time over 5 runs: about 2057 ms
   - Average total time over 5 runs: about 2060 ms
   - Persistent tracked HE allocation after setup: about 278544 bytes
@@ -117,11 +113,15 @@ Date: 2026-05-27
   - Persistent tracked HE allocation after setup: about 557072 bytes
   - Temporary tracked HE allocation peak delta: about 942193 bytes
   - Tracked HE allocations used PSRAM; internal tracked HE allocation stayed at 0 bytes.
+- Chain growth to `N=8192,{40,40,40,40,40}`: **complete**
+  - Same-scale compute test passed for 3, 4, and 5 total 40-bit primes.
+  - Maximum SEAL-valid tested chain at `N=8192` was five 40-bit primes.
+  - Six 40-bit primes failed SEAL parameter validation before ESP32 upload.
+  - Detailed measurements are in `docs/CHAIN_GROWTH_LOG.md`.
 
 ## Not implemented yet
 
-- Data-level ciphertexts with more than one usable computation prime; this needs a longer chain such as `{40,40,40}`.
 - Seeded ciphertext/public-key serialization paths
 - Binary serial/Wi-Fi transport for larger ciphertexts
-- Longer modulus chains, e.g. `{40,40,40}`, for ciphertext-ciphertext multiplication and rescale-heavy workloads.
+- Ciphertext-ciphertext multiplication tests with relin/rescale on the PC/server.
 - External-tool energy measurement is intentionally deferred.

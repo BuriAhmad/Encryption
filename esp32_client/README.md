@@ -1,45 +1,42 @@
-# ESP32 Client Scaffolding
+# ESP32 CKKS Client Core
 
-This folder contains initial embedded-side scaffolding for bundle parsing and memory planning.
+This folder contains the reusable embedded C++ core used by the Arduino sketch.
 
-## Files
+## Current Files
 
-- `src/he_bundle_format.h` and `src/he_bundle_format.cpp`:
-  - Parses and validates the host-generated bundle format.
-  - Validates magic/version/scheme/size/CRC.
-- `src/he_memory_plan.h` and `src/he_memory_plan.cpp`:
-  - Fast sizing estimates for plaintext/ciphertext/public-key buffers.
-- `src/he_allocator.h` and `src/he_allocator.cpp`:
+- `src/he_allocator.*`
   - PSRAM-preferred allocation wrappers for large HE buffers.
-- `src/he_embedded_package.h` and `src/he_embedded_package.cpp`:
-  - Parser for compact single-prime embedded package (public key in raw NTT form).
-- `src/mini_ckks_client.h` and `src/mini_ckks_client.cpp`:
-  - Minimal CKKS real-vector encode + asymmetric encrypt + SEAL ciphertext serializer.
+  - Tracks current/peak allocation, PSRAM/internal split, largest allocation, and failures.
+- `src/he_embedded_package.*`
+  - Parser for the compact embedded package exported by the PC tool.
+  - Package v2 stores coefficient modulus values plus raw public-key polynomials in NTT form.
+- `src/mini_ckks_client.*`
+  - Minimal CKKS real-vector encoder.
+  - Asymmetric public-key encryption.
+  - SEAL-compatible ciphertext serialization.
 
-## Arduino Example
+## Current Active Target
 
-`examples/BundleInspector/BundleInspector.ino` demonstrates:
-1. Loading bundle bytes (currently placeholder blob header)
-2. Parsing and validating bundle
-3. Printing HE metadata and memory estimates
+The current validated Arduino package is:
 
-To use it:
-1. Generate a real `bundle.bin` with `pc_tools/he_tool export-bundle`.
-2. Convert `bundle.bin` into a C byte array and paste into `examples/BundleInspector/bundle_blob_example.h`.
-3. Build/upload the example and inspect serial output.
+```text
+N = 8192
+coeff bits = {40,40,40,40,40}
+scale_bits = 20
+key-level modulus count = 5
+fresh ciphertext modulus count = 4
+```
 
-`examples/MiniEncryptDemo/MiniEncryptDemo.ino` demonstrates:
-1. Loading compact embedded package bytes (`embedded_package.bin` converted to C array).
-2. Running minimal real-vector CKKS encryption.
-3. Serializing a SEAL-compatible ciphertext buffer and printing metadata.
-4. Printing timing + heap/PSRAM counters for quick board-side monitoring.
+The ESP32 does not generate keys, decrypt, evaluate, relinearize, rotate, or rescale. It only:
 
-## Current Scope
+```text
+load embedded public-key package -> encode real vector -> encrypt -> serialize ciphertext
+```
 
-This now includes a first single-prime (`coeff_modulus_count=1`) encryption core:
-- scalar CKKS encode (repeated slot semantics),
-- real-vector CKKS encode using SEAL-style matrix mapping and inverse complex DWT,
-- RLWE public-key encryption path for fresh ciphertexts,
-- SEAL-compatible ciphertext binary serialization (`compr_mode=none`).
+## Removed Scaffolding
 
-Multi-prime RNS chains are not yet implemented.
+Older bundle-inspection examples and full host-bundle parsers were removed because the active embedded flow uses the compact package only. The canonical Arduino sketch lives in:
+
+```text
+arduino/MiniEncryptDemo/
+```
